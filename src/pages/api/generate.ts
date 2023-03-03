@@ -29,6 +29,7 @@ export const post: APIRoute = async (context) => {
 
   const stream = new ReadableStream({
     async start(controller) {
+      // stream parser mode
       const streamParser = (event: ParsedEvent | ReconnectInterval) => {
         if (event.type === 'event') {
           const data = event.data
