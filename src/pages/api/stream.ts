@@ -4,43 +4,59 @@ import {
   ParsedEvent,
   ReconnectInterval,
 } from "eventsource-parser";
+import { fetchWithTimeout } from "~/utils/tool";
 
-// support multiple api keys( string split by comma)
-const apiKeyEnv = import.meta.env.OPENAI_API_KEY;
+const openApiKeyStr = import.meta.env.OPENAI_API_KEY;
+console.log("openApiKeyStr", openApiKeyStr);
 
-function getRandomApiKey(apiKeysString: string): string {
-  const apiKeys = apiKeysString.split(",");
-  return apiKeys[Math.floor(Math.random() * apiKeys.length)];
-}
+const apiKeys = (openApiKeyStr || "").split(",");
 
 export const post: APIRoute = async (context) => {
-  const apiKey = getRandomApiKey(apiKeyEnv);
   const body = await context.request.json();
-  const messages = body.messages;
+  // 随机选择一个 API key（系统提供）
+  const presetApiKey = apiKeys.length
+    ? apiKeys[Math.floor(Math.random() * apiKeys.length)]
+    : "";
+
+  // 用户输入的内容（包含api key)
+  let { messages, key, temperature = 0.6 } = body;
+
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  if (!messages) {
-    return new Response("No input text");
+  if (!key) {
+    key = presetApiKey;
   }
 
-  const completion = await fetch("https://api.openai.com/v1/chat/completions", {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    method: "POST",
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      messages,
-      temperature: 0.6,
-      stream: true,
-    }),
-  });
+  if (!key) {
+    return new Response("没有填写 OpenAI API key");
+  }
+
+  if (!messages) {
+    return new Response("没有输入任何文字");
+  }
+
+  // 直接请求 OpenAI API
+
+  const completion = await fetchWithTimeout(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages,
+        temperature,
+        stream: true,
+      }),
+    }
+  );
 
   const stream = new ReadableStream({
     async start(controller) {
-      // stream parser mode
       const streamParser = (event: ParsedEvent | ReconnectInterval) => {
         if (event.type === "event") {
           const data = event.data;
@@ -49,7 +65,6 @@ export const post: APIRoute = async (context) => {
             return;
           }
           try {
-            // response 示例
             // response = {
             //   id: 'chatcmpl-6pULPSegWhFgi0XQ1DtgA3zTa1WR6',
             //   object: 'chat.completion.chunk',
@@ -70,6 +85,7 @@ export const post: APIRoute = async (context) => {
       };
 
       const parser = createParser(streamParser);
+
       for await (const chunk of completion.body as any) {
         parser.feed(decoder.decode(chunk));
       }

@@ -1,35 +1,68 @@
-import type { Accessor } from 'solid-js'
-import type { ChatMessage } from '../types'
-import MarkdownIt from 'markdown-it'
+import type { Accessor } from "solid-js";
+import type { ChatMessage } from "../types";
+import MarkdownIt from "markdown-it";
 // @ts-ignore
-import mdKatex from 'markdown-it-katex'
-import mdHighlight from 'markdown-it-highlightjs'
+import mdKatex from "markdown-it-katex";
+import mdHighlight from "markdown-it-highlightjs";
+import Clipboard from "./Clipboard";
+import { preWrapperPlugin } from "../markdown";
+import "../styles/message.css";
+import { useCopyCode } from "../hooks";
 
 interface Props {
-  role: ChatMessage['role']
-  message: Accessor<string> | string
+  role: ChatMessage["role"];
+  message: Accessor<string> | string;
 }
 
 export default ({ role, message }: Props) => {
+  useCopyCode();
   const roleClass = {
-    system: 'bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300',
-    user: 'bg-gradient-to-r from-purple-400 to-yellow-400',
-    assistant: 'bg-gradient-to-r from-yellow-200 via-green-200 to-green-300',
-  }
-  const htmlString = () => {
-    const md = MarkdownIt().use(mdKatex).use(mdHighlight)
+    system: "bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300",
+    user: "bg-gradient-to-r from-sky-400 to-emerald-500",
+    assistant: "bg-gradient-to-r from-yellow-300 to-red-700 ",
+  };
 
-    if (typeof message === 'function') {
-      return md.render(message())
-    } else if (typeof message === 'string') {
-      return md.render(message)
+  const htmlString = () => {
+    const md = MarkdownIt({
+      html: true,
+      linkify: true,
+    })
+      .use(mdKatex)
+      .use(mdHighlight, {
+        inline: true,
+      })
+      .use(preWrapperPlugin);
+
+    if (typeof message === "function") {
+      return md.render(message().trim());
+    } else if (typeof message === "string") {
+      return md.render(message.trim());
     }
-    return ''
-  }
+    return "";
+  };
+
   return (
-    <div class="flex py-2 gap-3 -mx-4 px-4 rounded-lg transition-colors md:hover:bg-slate/3" class:op-75={ role === 'user' }>
-      <div class={ `shrink-0 w-7 h-7 mt-4 rounded-full op-80 ${ roleClass[role] }` }></div>
-      <div class="message prose text-slate break-words overflow-hidden" innerHTML={htmlString()} />
+    <div
+      class="flex py-2 gap-3 px-4 rounded-lg transition-colors md:hover:bg-slate/5 dark:md:hover:bg-slate/2 relative message-item"
+      // class:op-75={role === "user"}
+    >
+      <div
+        class={`shrink-0 w-7 h-7 mt-4 rounded-full op-80 ${roleClass[role]}`}
+      ></div>
+      <div
+        class="message prose prose-slate dark:prose-invert dark:text-slate break-words overflow-hidden"
+        innerHTML={htmlString()}
+      />
+      <Clipboard
+        message={(() => {
+          if (typeof message === "function") {
+            return message().trim();
+          } else if (typeof message === "string") {
+            return message.trim();
+          }
+          return "";
+        })()}
+      />
     </div>
-  )
-}
+  );
+};
