@@ -1,28 +1,31 @@
 import { Accessor, createSignal, JSXElement, Setter, Show } from "solid-js";
 import type { Setting } from "./Generator";
-import html2canvas from "html2canvas";
+import { toJpeg } from "html-to-image";
+import { copyToClipboard, dateFormat } from "~/utils";
+import type { ChatMessage } from "~/types";
 
-export default function Setting(props: {
+export default function SettingAction(props: {
   setting: Accessor<Setting>;
   setSetting: Setter<Setting>;
   clear: any;
   reAnswer: any;
+  messaages: ChatMessage[];
 }) {
   const [shown, setShown] = createSignal(false);
+  const [copied, setCopied] = createSignal(false);
   return (
-    <div class="text-sm text-slate-7 dark:text-slate mb-4">
+    <div class="text-sm text-slate-7 dark:text-slate mb-2">
       <Show when={shown()}>
-        {/* 如需自定义需用户设置 */}
         {/* <SettingItem icon="i-carbon:api" label="OpenAI API Key">
           <input
             type="password"
             value={props.setting().openaiAPIKey}
             class="max-w-150px ml-1em px-1 text-slate-7 dark:text-slate rounded-sm bg-slate bg-op-15 focus:bg-op-20 focus:ring-0 focus:outline-none"
-            onInput={e => {
+            onInput={(e) => {
               props.setSetting({
                 ...props.setting(),
-                openaiAPIKey: (e.target as HTMLInputElement).value
-              })
+                openaiAPIKey: (e.target as HTMLInputElement).value,
+              });
             }}
           />
         </SettingItem> */}
@@ -30,7 +33,6 @@ export default function Setting(props: {
           <input
             type="text"
             value={props.setting().systemRule}
-            placeholder=""
             class="text-ellipsis max-w-150px ml-1em px-1 text-slate-7 dark:text-slate rounded-sm bg-slate bg-op-15 focus:bg-op-20 focus:ring-0 focus:outline-none"
             onInput={(e) => {
               props.setSetting({
@@ -98,30 +100,40 @@ export default function Setting(props: {
         <hr class="mt-2 bg-slate-5 bg-op-15 border-none h-1px"></hr>
       </Show>
       <div class="mt-2 flex items-center justify-between">
-        <ButtonItem
+        <ActionItem
           onClick={() => {
             setShown(!shown());
           }}
           icon="i-carbon:settings"
-          label="自定义"
+          label="设置"
         />
-
         <div class="flex">
-          <ButtonItem
-            onClick={() => {
-              html2canvas(
-                document.querySelector("#message-container") as HTMLElement
-              ).then((canvas) => {
-                const a = document.createElement("a");
-                a.href = canvas.toDataURL("image/png");
-                a.download = "chatgpt_mini.png";
-                a.click();
-              });
-            }}
+          <ActionItem
+            onClick={exportJpg}
             icon="i-carbon:image"
+            label="导出图片"
           />
-          <ButtonItem onClick={props.reAnswer} icon="i-carbon:reset" />
-          <ButtonItem onClick={props.clear} icon="i-carbon:trash-can" />
+          <ActionItem
+            label="导出 Markdown"
+            onClick={async () => {
+              await exportMD(props.messaages);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1000);
+            }}
+            icon={
+              copied() ? "i-ri:check-fill text-yellow" : "i-ri:markdown-line"
+            }
+          />
+          <ActionItem
+            onClick={props.reAnswer}
+            icon="i-carbon:reset"
+            label="重新回答"
+          />
+          <ActionItem
+            onClick={props.clear}
+            icon="i-carbon:trash-can"
+            label="清空对话"
+          />
         </div>
       </div>
     </div>
@@ -144,16 +156,39 @@ function SettingItem(props: {
   );
 }
 
-function ButtonItem(props: { onClick: any; icon: string; label?: string }) {
+function ActionItem(props: { onClick: any; icon: string; label?: string }) {
   return (
     <div
-      class="flex items-center cursor-pointer p-2 hover:bg-slate hover:bg-op-10 rounded text-1.2em"
+      class="flex items-center cursor-pointer mx-1 p-2 hover:bg-slate hover:bg-op-10 rounded text-1.2em"
       onClick={props.onClick}
     >
-      <button class={props.icon} />
-      <Show when={props.label}>
-        <span ml-1>{props.label}</span>
-      </Show>
+      <button class={props.icon} title={props.label} />
     </div>
+  );
+}
+
+function exportJpg() {
+  toJpeg(document.querySelector("#message-container") as HTMLElement, {}).then(
+    (url) => {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ChatGPT-${dateFormat(new Date(), "HH-MM-SS")}.jpg`;
+      a.click();
+    }
+  );
+}
+
+async function exportMD(messages: ChatMessage[]) {
+  const role = {
+    system: "系统",
+    user: "我",
+    assistant: "ChatGPT",
+  };
+  await copyToClipboard(
+    messages
+      .map((k) => {
+        return `### ${role[k.role]}\n\n${k.content.trim()}`;
+      })
+      .join("\n\n\n\n")
   );
 }

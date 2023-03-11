@@ -2,13 +2,13 @@ import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { createResizeObserver } from "@solid-primitives/resize-observer";
 import MessageItem from "./MessageItem";
 import type { ChatMessage } from "~/types";
-import Setting from "./Setting";
+import SettingAction from "./SettingAction";
 import PromptList from "./PromptList";
-import prompts from "~/prompts";
 import { Fzf } from "fzf";
 import { defaultMessage, defaultSetting } from "~/default";
 import throttle from "just-throttle";
 import { isMobile } from "~/utils";
+// import { mdMessage } from "~/temp"
 
 export interface PromptItem {
   desc: string;
@@ -17,11 +17,15 @@ export interface PromptItem {
 
 export type Setting = typeof defaultSetting;
 
-export default function () {
+export default function (props: { prompts: PromptItem[] }) {
   let inputRef: HTMLTextAreaElement;
   let containerRef: HTMLDivElement;
-  const [messageList, setMessageList] = createSignal<ChatMessage[]>([]);
-
+  const [messageList, setMessageList] = createSignal<ChatMessage[]>([
+    // {
+    //   role: "assistant",
+    //   content: mdMessage
+    // }
+  ]);
   const [inputContent, setInputContent] = createSignal("");
   const [currentAssistantMessage, setCurrentAssistantMessage] =
     createSignal("");
@@ -32,15 +36,19 @@ export default function () {
     []
   );
   const [containerWidth, setContainerWidth] = createSignal("init");
-  const fzf = new Fzf(prompts, { selector: (k) => `${k.desc} (${k.prompt})` });
+  const fzf = new Fzf(props.prompts, {
+    selector: (k) => `${k.desc} (${k.prompt})`,
+  });
   const [height, setHeight] = createSignal("48px");
 
   onMount(() => {
+    document.querySelector("main")?.classList.remove("before");
+    document.querySelector("main")?.classList.add("after");
     createResizeObserver(containerRef, ({ width, height }, el) => {
       if (el === containerRef) setContainerWidth(`${width}px`);
     });
-    const storage = localStorage.getItem("chatgptmini_setting");
-    const session = localStorage.getItem("chatgptmini_session");
+    const storage = localStorage.getItem("setting");
+    const session = localStorage.getItem("session");
     try {
       let archiveSession = false;
       if (storage) {
@@ -49,6 +57,7 @@ export default function () {
         setSetting({
           ...defaultSetting,
           ...parsed,
+          // continuousDialogue: false
         });
       }
       if (session && archiveSession) {
@@ -73,12 +82,9 @@ export default function () {
     ) {
       setMessageList(messageList().slice(1));
     }
-    localStorage.setItem("chatgptmini_setting", JSON.stringify(setting()));
+    localStorage.setItem("setting", JSON.stringify(setting()));
     if (setting().archiveSession)
-      localStorage.setItem(
-        "chatgptmini_session",
-        JSON.stringify(messageList())
-      );
+      localStorage.setItem("session", JSON.stringify(messageList()));
   });
 
   createEffect(() => {
@@ -130,7 +136,6 @@ export default function () {
     // @ts-ignore
     if (window?.umami) umami.trackEvent("chat_generate");
     setInputContent("");
-
     if (
       !value ||
       value !==
@@ -207,6 +212,7 @@ export default function () {
   }
 
   function clearSession() {
+    // setInputContent("")
     setMessageList([]);
     setCurrentAssistantMessage("");
   }
@@ -263,7 +269,7 @@ export default function () {
           containerWidth() === "init"
             ? {}
             : {
-                transition: "opacity 0.3s ease-in-out",
+                transition: "opacity 1s ease-in-out",
                 width: containerWidth(),
                 opacity: 100,
                 "background-color": "var(--c-bg)",
@@ -271,11 +277,12 @@ export default function () {
         }
       >
         <Show when={!compatiblePrompt().length && height() === "48px"}>
-          <Setting
+          <SettingAction
             setting={setting}
             setSetting={setSetting}
             clear={clearSession}
             reAnswer={reAnswer}
+            messaages={messageList()}
           />
         </Show>
         <Show
@@ -287,7 +294,7 @@ export default function () {
                 class="ml-1em px-2 py-0.5 border border-slate text-slate rounded-md text-sm op-70 cursor-pointer hover:bg-slate/10"
                 onClick={stopStreamFetch}
               >
-                停止
+                不需要了
               </div>
             </div>
           )}
@@ -302,7 +309,7 @@ export default function () {
             <textarea
               ref={inputRef!}
               id="input"
-              placeholder="与 ChatGPT 对话吧"
+              placeholder="与 ta 对话吧"
               autocomplete="off"
               value={inputContent()}
               autofocus
@@ -338,13 +345,14 @@ export default function () {
                 let { value } = e.currentTarget;
                 setInputContent(value);
                 if (value === "/" || value === " ")
-                  return setCompatiblePrompt(prompts);
+                  return setCompatiblePrompt(props.prompts);
                 const promptKey = value.replace(/^[\/ ](.*)/, "$1");
                 if (promptKey !== value)
                   setCompatiblePrompt(fzf.find(promptKey).map((k) => k.item));
               }}
               style={{
                 height: height(),
+                "border-bottom-right-radius": 0,
                 "border-top-right-radius": height() === "48px" ? 0 : "0.25rem",
                 "border-top-left-radius":
                   compatiblePrompt().length === 0 ? "0.25rem" : 0,

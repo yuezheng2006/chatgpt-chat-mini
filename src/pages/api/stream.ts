@@ -4,56 +4,45 @@ import {
   ParsedEvent,
   ReconnectInterval,
 } from "eventsource-parser";
-import { fetchWithTimeout } from "~/utils/tool";
 
-const openApiKeyStr = import.meta.env.OPENAI_API_KEY;
-console.log("openApiKeyStr", openApiKeyStr);
+const localEnv = import.meta.env.OPENAI_API_KEY;
+const vercelEnv = process.env.OPENAI_API_KEY;
 
-const apiKeys = (openApiKeyStr || "").split(",");
+const apiKeys = ((localEnv || vercelEnv)?.split(/\s*\|\s*/) ?? []).filter(
+  Boolean
+);
 
 export const post: APIRoute = async (context) => {
   const body = await context.request.json();
-  // 随机选择一个 API key（系统提供）
-  const presetApiKey = apiKeys.length
+  const apiKey = apiKeys.length
     ? apiKeys[Math.floor(Math.random() * apiKeys.length)]
     : "";
-
-  // 用户输入的内容（包含api key)
-  let { messages, key, temperature = 0.6 } = body;
+  let { messages, key = apiKey, temperature = 0.6 } = body;
 
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  if (!key) {
-    key = presetApiKey;
-  }
-
+  if (!key.startsWith("sk-")) key = apiKey;
   if (!key) {
     return new Response("没有填写 OpenAI API key");
   }
-
   if (!messages) {
     return new Response("没有输入任何文字");
   }
 
-  // 直接请求 OpenAI API
-
-  const completion = await fetchWithTimeout(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      method: "POST",
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        temperature,
-        stream: true,
-      }),
-    }
-  );
+  const completion = await fetch("https://api.openai.com/v1/chat/completions", {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    method: "POST",
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages,
+      temperature,
+      stream: true,
+    }),
+  });
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -85,7 +74,6 @@ export const post: APIRoute = async (context) => {
       };
 
       const parser = createParser(streamParser);
-
       for await (const chunk of completion.body as any) {
         parser.feed(decoder.decode(chunk));
       }
