@@ -9,7 +9,6 @@ import throttle from "just-throttle";
 import { isMobile } from "~/utils";
 import type { Setting } from "~/system";
 import { makeEventListener } from "@solid-primitives/event-listener";
-// import { mdMessage } from "~/temp"
 
 export interface PromptItem {
   desc: string;
@@ -27,7 +26,7 @@ export default function (props: {
   let inputRef: HTMLTextAreaElement;
   let containerRef: HTMLDivElement;
 
-  const { defaultMessage, defaultSetting, resetContinuousDialogue } = props.env;
+  const { defaultMessage, defaultSetting } = props.env;
   const [messageList, setMessageList] = createSignal<ChatMessage[]>([
     // {
     //   role: "assistant",
@@ -95,7 +94,6 @@ export default function (props: {
         setSetting({
           ...defaultSetting,
           ...parsed,
-          ...(resetContinuousDialogue ? { continuousDialogue: false } : {}),
         });
       }
       if (session && archiveSession) {
@@ -395,7 +393,7 @@ export default function (props: {
             <textarea
               ref={inputRef!}
               id="input"
-              placeholder="与 ta 对话吧"
+              placeholder="与 ChatGPT 对话吧"
               autocomplete="off"
               value={inputContent()}
               autofocus

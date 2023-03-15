@@ -33,7 +33,8 @@
 </style>
 
 <script is:inline>
-  const persistentTheme = localStorage.getItem("theme")
+  // 初始theme
+  const persistentTheme = localStorage.getItem("theme")||'dark'
   const darkSchema = window.matchMedia("(prefers-color-scheme: dark)")
 
   function listener() {
