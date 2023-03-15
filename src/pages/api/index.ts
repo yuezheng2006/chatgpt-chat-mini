@@ -27,6 +27,18 @@ const maxTokens = Number(
 
 // const pwd = import.meta.env.PASSWORD || process.env.PASSWORD;
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}) {
+  const timeout = 100 * 1000;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  const response = await fetch(url, {
+    ...options,
+    signal: controller.signal,
+  });
+  clearTimeout(id);
+  return response;
+}
+
 export const post: APIRoute = async (context) => {
   const body = await context.request.json();
   const apiKey = apiKeys.length
@@ -70,19 +82,22 @@ export const post: APIRoute = async (context) => {
     else return new Response("太长了，缩短一点吧。");
   }
 
-  const completion = await fetch(`https://${baseURL}/v1/chat/completions`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    method: "POST",
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      messages,
-      temperature,
-      stream: true,
-    }),
-  });
+  const completion = await fetchWithTimeout(
+    `https://${baseURL}/v1/chat/completions`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages,
+        temperature,
+        stream: true,
+      }),
+    }
+  );
 
   const stream = new ReadableStream({
     async start(controller) {
