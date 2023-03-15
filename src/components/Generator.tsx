@@ -9,7 +9,6 @@ import throttle from "just-throttle";
 import { isMobile } from "~/utils";
 import type { Setting } from "~/system";
 import { makeEventListener } from "@solid-primitives/event-listener";
-import { fetchWithTimeout } from "~/utils/tool";
 // import { mdMessage } from "~/temp"
 
 export interface PromptItem {
@@ -218,7 +217,7 @@ export default function (props: {
       content: systemRule ? systemRule + "\n" + inputValue : inputValue,
     };
 
-    const response = await fetchWithTimeout("/api", {
+    const response = await fetch("/api", {
       method: "POST",
 
       body: JSON.stringify({

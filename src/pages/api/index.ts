@@ -72,22 +72,20 @@ export const post: APIRoute = async (context) => {
   }
 
   try {
-    const completion = await fetchWithTimeout(
-      `https://${baseURL}/v1/chat/completions`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        method: "POST",
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages,
-          temperature,
-          stream: true,
-        }),
-      }
-    );
+    const completion = await fetch(`https://${baseURL}/v1/chat/completions`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      method: "POST",
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages,
+        temperature,
+        stream: true,
+      }),
+    });
+    console.log("gpt completion", JSON.stringify(completion.body));
 
     const stream = new ReadableStream({
       async start(controller) {
