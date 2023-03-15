@@ -14,6 +14,7 @@ const apiKeys = ((localEnv || vercelEnv)?.split(/\s*\|\s*/) ?? []).filter(
 
 export const post: APIRoute = async (context) => {
   const body = await context.request.json();
+
   const apiKey = apiKeys.length
     ? apiKeys[Math.floor(Math.random() * apiKeys.length)]
     : "";
@@ -24,7 +25,7 @@ export const post: APIRoute = async (context) => {
 
   if (!key.startsWith("sk-")) key = apiKey;
   if (!key) {
-    return new Response("没有填写 OpenAI API key");
+    return new Response("OpenAI API key is required");
   }
   if (!messages) {
     return new Response("没有输入任何文字");

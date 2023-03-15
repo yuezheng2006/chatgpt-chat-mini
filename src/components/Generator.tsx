@@ -5,9 +5,10 @@ import type { ChatMessage } from "~/types";
 import SettingAction from "./SettingAction";
 import PromptList from "./PromptList";
 import { Fzf } from "fzf";
-import { defaultMessage, defaultSetting } from "~/default";
 import throttle from "just-throttle";
 import { isMobile } from "~/utils";
+import type { Setting } from "~/system";
+import { makeEventListener } from "@solid-primitives/event-listener";
 // import { mdMessage } from "~/temp"
 
 export interface PromptItem {
@@ -15,11 +16,18 @@ export interface PromptItem {
   prompt: string;
 }
 
-export type Setting = typeof defaultSetting;
-
-export default function (props: { prompts: PromptItem[] }) {
+export default function (props: {
+  prompts: PromptItem[];
+  env: {
+    defaultSetting: Setting;
+    defaultMessage: string;
+    resetContinuousDialogue: boolean;
+  };
+}) {
   let inputRef: HTMLTextAreaElement;
   let containerRef: HTMLDivElement;
+
+  const { defaultMessage, defaultSetting, resetContinuousDialogue } = props.env;
   const [messageList, setMessageList] = createSignal<ChatMessage[]>([
     // {
     //   role: "assistant",
@@ -36,14 +44,46 @@ export default function (props: { prompts: PromptItem[] }) {
     []
   );
   const [containerWidth, setContainerWidth] = createSignal("init");
+  const [messageListLength, setMessageListLength] = createSignal(0);
   const fzf = new Fzf(props.prompts, {
     selector: (k) => `${k.desc} (${k.prompt})`,
   });
   const [height, setHeight] = createSignal("48px");
+  const [compositionend, setCompositionend] = createSignal(true);
+
+  const scrollToBottom = throttle(
+    () => {
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth",
+      });
+    },
+    250,
+    { leading: true, trailing: false }
+  );
 
   onMount(() => {
+    makeEventListener(
+      inputRef,
+      "compositionend",
+      () => {
+        setCompositionend(true);
+        handleInput();
+      },
+      { passive: true }
+    );
+    makeEventListener(
+      inputRef,
+      "compositionstart",
+      () => {
+        setCompositionend(false);
+      },
+      { passive: true }
+    );
+    // 增加交互
     document.querySelector("main")?.classList.remove("before");
     document.querySelector("main")?.classList.add("after");
+
     createResizeObserver(containerRef, ({ width, height }, el) => {
       if (el === containerRef) setContainerWidth(`${width}px`);
     });
@@ -57,7 +97,7 @@ export default function (props: { prompts: PromptItem[] }) {
         setSetting({
           ...defaultSetting,
           ...parsed,
-          // continuousDialogue: false
+          ...(resetContinuousDialogue ? { continuousDialogue: false } : {}),
         });
       }
       if (session && archiveSession) {
@@ -88,28 +128,32 @@ export default function (props: { prompts: PromptItem[] }) {
   });
 
   createEffect(() => {
-    messageList();
+    if (messageList().length > messageListLength()) {
+      scrollToBottom();
+      setMessageListLength(messageList().length);
+    }
+  });
+
+  createEffect(() => {
     currentAssistantMessage();
     scrollToBottom();
   });
 
   createEffect(() => {
+    setHeight("48px");
     if (inputContent() === "") {
-      setHeight("48px");
       setCompatiblePrompt([]);
+    } else {
+      const { scrollHeight } = inputRef;
+      setHeight(
+        `${
+          scrollHeight > window.innerHeight - 64
+            ? window.innerHeight - 64
+            : scrollHeight
+        }px`
+      );
     }
   });
-
-  const scrollToBottom = throttle(
-    () => {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
-    },
-    250,
-    { leading: true, trailing: false }
-  );
 
   function archiveCurrentMessage() {
     if (currentAssistantMessage()) {
@@ -117,7 +161,7 @@ export default function (props: { prompts: PromptItem[] }) {
         ...messageList(),
         {
           role: "assistant",
-          content: currentAssistantMessage(),
+          content: currentAssistantMessage().trim(),
         },
       ]);
       setCurrentAssistantMessage("");
@@ -246,8 +290,44 @@ export default function (props: { prompts: PromptItem[] }) {
     inputRef.focus();
   }
 
+  const find = throttle(
+    (value: string) => {
+      if (value === "/" || value === " ")
+        return setCompatiblePrompt(props.prompts.slice(0, 20));
+      const query = value.replace(/^[\/ ](.*)/, "$1");
+      if (query !== value)
+        setCompatiblePrompt(
+          fzf
+            .find(query)
+            .map((k) => k.item)
+            .slice(0, 20)
+        );
+    },
+    250,
+    {
+      trailing: false,
+      leading: true,
+    }
+  );
+
+  async function handleInput() {
+    setHeight("48px");
+    const { scrollHeight } = inputRef;
+    setHeight(
+      `${
+        scrollHeight > window.innerHeight - 64
+          ? window.innerHeight - 64
+          : scrollHeight
+      }px`
+    );
+    if (!compositionend()) return;
+    let { value } = inputRef;
+    setInputContent(value);
+    find(value);
+  }
+
   return (
-    <div mt-6 ref={containerRef!}>
+    <div ref={containerRef!}>
       <div
         id="message-container"
         style={{
@@ -255,12 +335,18 @@ export default function (props: { prompts: PromptItem[] }) {
         }}
       >
         <For each={messageList()}>
-          {(message) => (
-            <MessageItem role={message.role} message={message.content} />
+          {(message, index) => (
+            <MessageItem
+              role={message.role}
+              message={message.content}
+              index={index()}
+              setInputContent={setInputContent}
+              setMessageList={setMessageList}
+            />
           )}
         </For>
         {currentAssistantMessage() && (
-          <MessageItem role="assistant" message={currentAssistantMessage} />
+          <MessageItem role="assistant" message={currentAssistantMessage()} />
         )}
       </div>
       <div
@@ -269,7 +355,7 @@ export default function (props: { prompts: PromptItem[] }) {
           containerWidth() === "init"
             ? {}
             : {
-                transition: "opacity 1s ease-in-out",
+                transition: "opacity 0.3s ease-in-out",
                 width: containerWidth(),
                 opacity: 100,
                 "background-color": "var(--c-bg)",
@@ -314,10 +400,8 @@ export default function (props: { prompts: PromptItem[] }) {
               value={inputContent()}
               autofocus
               onClick={scrollToBottom}
-              // onBlur={() => {
-              //   setCompatiblePrompt([])
-              // }}
               onKeyDown={(e) => {
+                if (e.isComposing) return;
                 if (compatiblePrompt().length) {
                   if (
                     e.key === "ArrowUp" ||
@@ -327,29 +411,21 @@ export default function (props: { prompts: PromptItem[] }) {
                     e.preventDefault();
                   }
                 } else if (e.key === "Enter") {
-                  if (!e.shiftKey && !e.isComposing) {
+                  if (!e.shiftKey) {
                     handleButtonClick();
+                  }
+                } else if (e.key === "ArrowUp") {
+                  const userMessages = messageList()
+                    .filter((k) => k.role === "user")
+                    .map((k) => k.content);
+                  const content = userMessages.at(-1);
+                  if (content && !inputContent()) {
+                    e.preventDefault();
+                    setInputContent(content);
                   }
                 }
               }}
-              onInput={(e) => {
-                setHeight("48px");
-                const { scrollHeight } = e.currentTarget;
-                setHeight(
-                  `${
-                    scrollHeight > window.innerHeight - 64
-                      ? window.innerHeight - 64
-                      : scrollHeight
-                  }px`
-                );
-                let { value } = e.currentTarget;
-                setInputContent(value);
-                if (value === "/" || value === " ")
-                  return setCompatiblePrompt(props.prompts);
-                const promptKey = value.replace(/^[\/ ](.*)/, "$1");
-                if (promptKey !== value)
-                  setCompatiblePrompt(fzf.find(promptKey).map((k) => k.item));
-              }}
+              onInput={handleInput}
               style={{
                 height: height(),
                 "border-bottom-right-radius": 0,

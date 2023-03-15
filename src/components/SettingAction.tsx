@@ -1,8 +1,8 @@
 import { Accessor, createSignal, JSXElement, Setter, Show } from "solid-js";
-import type { Setting } from "./Generator";
 import { toJpeg } from "html-to-image";
 import { copyToClipboard, dateFormat } from "~/utils";
 import type { ChatMessage } from "~/types";
+import type { Setting } from "~/system";
 
 export default function SettingAction(props: {
   setting: Accessor<Setting>;
@@ -16,6 +16,7 @@ export default function SettingAction(props: {
   return (
     <div class="text-sm text-slate-7 dark:text-slate mb-2">
       <Show when={shown()}>
+        {/* 用户自身apikey */}
         {/* <SettingItem icon="i-carbon:api" label="OpenAI API Key">
           <input
             type="password"
@@ -105,7 +106,7 @@ export default function SettingAction(props: {
             setShown(!shown());
           }}
           icon="i-carbon:settings"
-          label="设置"
+          label="自定义设置"
         />
         <div class="flex">
           <ActionItem
@@ -121,7 +122,9 @@ export default function SettingAction(props: {
               setTimeout(() => setCopied(false), 1000);
             }}
             icon={
-              copied() ? "i-ri:check-fill text-yellow" : "i-ri:markdown-line"
+              copied()
+                ? "i-ri:check-fill dark:text-yellow text-yellow-6"
+                : "i-ri:markdown-line"
             }
           />
           <ActionItem
