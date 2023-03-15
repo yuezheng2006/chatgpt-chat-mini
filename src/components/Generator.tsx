@@ -9,6 +9,7 @@ import throttle from "just-throttle";
 import { isMobile } from "~/utils";
 import type { Setting } from "~/system";
 import { makeEventListener } from "@solid-primitives/event-listener";
+import { fetchWithTimeout } from "~/utils/tool";
 // import { mdMessage } from "~/temp"
 
 export interface PromptItem {
@@ -216,8 +217,10 @@ export default function (props: {
       role: "user",
       content: systemRule ? systemRule + "\n" + inputValue : inputValue,
     };
-    const response = await fetch("/api", {
+
+    const response = await fetchWithTimeout("/api", {
       method: "POST",
+
       body: JSON.stringify({
         messages: setting().continuousDialogue
           ? [...messageList().slice(0, -1), message]
@@ -228,12 +231,14 @@ export default function (props: {
       }),
       signal: controller.signal,
     });
+
     if (!response.ok) {
-      throw new Error(response.statusText);
+      throw new Error(`${response.statusText}:当前请求异常`);
     }
     const data = response.body;
+
     if (!data) {
-      throw new Error("没有返回数据");
+      throw new Error("返回数据为空");
     }
     const reader = data.getReader();
     const decoder = new TextDecoder("utf-8");

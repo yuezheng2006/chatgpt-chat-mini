@@ -6,6 +6,7 @@ import {
 } from "eventsource-parser";
 import { countTokens } from "gptoken";
 import type { ChatMessage } from "~/types";
+import { fetchWithTimeout } from "~/utils/tool";
 
 const apiKeys = (
   import.meta.env.OPENAI_API_KEY ||
@@ -26,18 +27,6 @@ const maxTokens = Number(
 );
 
 // const pwd = import.meta.env.PASSWORD || process.env.PASSWORD;
-
-async function fetchWithTimeout(url: string, options: RequestInit = {}) {
-  const timeout = 100 * 1000;
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  const response = await fetch(url, {
-    ...options,
-    signal: controller.signal,
-  });
-  clearTimeout(id);
-  return response;
-}
 
 export const post: APIRoute = async (context) => {
   const body = await context.request.json();
@@ -82,48 +71,52 @@ export const post: APIRoute = async (context) => {
     else return new Response("太长了，缩短一点吧。");
   }
 
-  const completion = await fetchWithTimeout(
-    `https://${baseURL}/v1/chat/completions`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      method: "POST",
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        temperature,
-        stream: true,
-      }),
-    }
-  );
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const streamParser = (event: ParsedEvent | ReconnectInterval) => {
-        if (event.type === "event") {
-          const data = event.data;
-          if (data === "[DONE]") {
-            controller.close();
-            return;
-          }
-          try {
-            const json = JSON.parse(data);
-            const text = json.choices[0].delta?.content;
-            const queue = encoder.encode(text);
-            controller.enqueue(queue);
-          } catch (e) {
-            controller.error(e);
-          }
-        }
-      };
-      const parser = createParser(streamParser);
-      for await (const chunk of completion.body as any) {
-        parser.feed(decoder.decode(chunk));
+  try {
+    const completion = await fetchWithTimeout(
+      `https://${baseURL}/v1/chat/completions`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        method: "POST",
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages,
+          temperature,
+          stream: true,
+        }),
       }
-    },
-  });
+    );
 
-  return new Response(stream);
+    const stream = new ReadableStream({
+      async start(controller) {
+        const streamParser = (event: ParsedEvent | ReconnectInterval) => {
+          if (event.type === "event") {
+            const data = event.data;
+            if (data === "[DONE]") {
+              controller.close();
+              return;
+            }
+            try {
+              const json = JSON.parse(data);
+              const text = json.choices[0].delta?.content;
+              const queue = encoder.encode(text);
+              controller.enqueue(queue);
+            } catch (e) {
+              controller.error(e);
+            }
+          }
+        };
+        const parser = createParser(streamParser);
+        for await (const chunk of completion.body as any) {
+          parser.feed(decoder.decode(chunk));
+        }
+      },
+    });
+
+    return new Response(stream);
+  } catch (error) {
+    return new Response("当前网络异常，请稍后重试。");
+  }
 };
