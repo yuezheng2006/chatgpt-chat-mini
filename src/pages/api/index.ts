@@ -4,10 +4,11 @@ import {
   ParsedEvent,
   ReconnectInterval,
 } from "eventsource-parser";
-import { countTokens } from "gptoken";
-import type { ChatMessage } from "~/types";
-import { fetchWithTimeout } from "~/utils/tool";
 
+import type { ChatMessage } from "~/types";
+
+import GPT3Tokenizer from "gpt3-tokenizer";
+const tokenizer = new GPT3Tokenizer({ type: "gpt3" });
 const apiKeys = (
   import.meta.env.OPENAI_API_KEY ||
   process.env.OPENAI_API_KEY ||
@@ -33,6 +34,7 @@ export const post: APIRoute = async (context) => {
   const apiKey = apiKeys.length
     ? apiKeys[Math.floor(Math.random() * apiKeys.length)]
     : "";
+
   let {
     messages,
     key = apiKey,
@@ -56,11 +58,12 @@ export const post: APIRoute = async (context) => {
     return new Response("没有输入任何文字。");
   }
   // if (pwd && pwd !== password) {
-  //   return new Response("密码错误，请联系网站管理员。");
+  //   return new Response("密码错误，请联系网站管理员。")
   // }
 
   const tokens = messages.reduce((acc, cur) => {
-    return acc + countTokens(cur.content);
+    const tokens = tokenizer.encode(cur.content).bpe.length;
+    return acc + tokens;
   }, 0);
 
   if (tokens > (Number.isInteger(maxTokens) ? maxTokens : 3072)) {
@@ -71,21 +74,30 @@ export const post: APIRoute = async (context) => {
     else return new Response("太长了，缩短一点吧。");
   }
 
+  const requestPayload = {
+    model: "gpt-3.5-turbo",
+    messages,
+    temperature,
+    stream: true,
+  };
+  console.log("gpt request url:", baseURL);
+  console.log("gpt request payload:", JSON.stringify(requestPayload));
+
+  const requestUrl = `https://${baseURL}/v1/chat/completions`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30 * 1000);
+
   try {
-    const completion = await fetch(`https://${baseURL}/v1/chat/completions`, {
+    const completion = await fetch(requestUrl, {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
       method: "POST",
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages,
-        temperature,
-        stream: true,
-      }),
+      body: JSON.stringify(requestPayload),
+      signal: controller.signal,
     });
-    console.log("gpt completion", JSON.stringify(completion.body));
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -115,6 +127,10 @@ export const post: APIRoute = async (context) => {
 
     return new Response(stream);
   } catch (error) {
-    return new Response("当前网络异常，请稍后重试。");
+    console.log(JSON.stringify(error));
+    console.log(error?.message || "gpt api error");
+    return new Response("GPT 当前不可用, 请稍后再试。");
+  } finally {
+    clearTimeout(timeoutId);
   }
 };

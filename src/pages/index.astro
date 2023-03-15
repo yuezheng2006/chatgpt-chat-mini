@@ -7,15 +7,17 @@ import "@unocss/reset/tailwind.css"
 import "katex/dist/katex.min.css"
 import "highlight.js/styles/atom-one-dark.css"
 import { parsePrompts } from "~/utils/parse"
-import { setting, message, resetContinuousDialogue   } from "~/system"
-const prompts = parsePrompts()
-const defaultMessage = import.meta.env.DEFAULT_MESSAGE || process.env.DEFAULT_MESSAGE || message
+import { setting, message, resetContinuousDialogue } from "~/system"
 
-// 获取项目默认配置
-// 优先从环境变量中获取
+const prompts = parsePrompts()
+const defaultMessage =
+  import.meta.env.DEFAULT_MESSAGE || process.env.DEFAULT_MESSAGE || message
+
 let defaultSetting
 try {
-  defaultSetting = JSON.parse(import.meta.env.DEFAULT_SETTING || process.env.DEFAULT_SETTING)
+  defaultSetting = JSON.parse(
+    import.meta.env.DEFAULT_SETTING || process.env.DEFAULT_SETTING
+  )
 } catch {
   defaultSetting = setting
 }
@@ -25,16 +27,22 @@ const reset =
     String(resetContinuousDialogue) ||
   process.env.RESET_CONTINUOUS_DIALOGUE_OPTION ===
     String(resetContinuousDialogue)
-
 ---
 
-<Layout title="ChatGPT MINI">
+<Layout title="ChatGPT-MINI">
+  
   <main class="before">
     <Header />
-    <Generator env={{
-      defaultSetting,
-      defaultMessage,
-      resetContinuousDialogue: reset ? resetContinuousDialogue : !resetContinuousDialogue
-    }} prompts={prompts} client:visible />
+    <Generator
+      env={{
+        defaultSetting,
+        defaultMessage,
+        resetContinuousDialogue: reset
+          ? resetContinuousDialogue
+          : !resetContinuousDialogue
+      }}
+      prompts={prompts}
+      client:visible
+    />
   </main>
 </Layout>

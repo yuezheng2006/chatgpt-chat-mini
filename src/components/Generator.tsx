@@ -151,6 +151,7 @@ export default function (props: {
         }px`
       );
     }
+    inputRef.focus();
   });
 
   function archiveCurrentMessage() {
@@ -216,10 +217,8 @@ export default function (props: {
       role: "user",
       content: systemRule ? systemRule + "\n" + inputValue : inputValue,
     };
-
     const response = await fetch("/api", {
       method: "POST",
-
       body: JSON.stringify({
         messages: setting().continuousDialogue
           ? [...messageList().slice(0, -1), message]
@@ -230,14 +229,12 @@ export default function (props: {
       }),
       signal: controller.signal,
     });
-
     if (!response.ok) {
-      throw new Error(`${response.statusText}:当前请求异常`);
+      throw new Error(response.statusText);
     }
     const data = response.body;
-
     if (!data) {
-      throw new Error("返回数据为空");
+      throw new Error("没有返回数据");
     }
     const reader = data.getReader();
     const decoder = new TextDecoder("utf-8");
@@ -330,7 +327,7 @@ export default function (props: {
   }
 
   return (
-    <div ref={containerRef!}>
+    <div ref={containerRef!} class="mt-2">
       <div
         id="message-container"
         style={{
@@ -358,7 +355,7 @@ export default function (props: {
           containerWidth() === "init"
             ? {}
             : {
-                transition: "opacity 1s ease-in-out",
+                transition: "opacity 0.5s ease-in-out",
                 width: containerWidth(),
                 opacity: 100,
                 "background-color": "var(--c-bg)",

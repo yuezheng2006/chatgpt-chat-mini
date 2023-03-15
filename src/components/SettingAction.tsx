@@ -21,11 +21,11 @@ export default function SettingAction(props: {
             type="password"
             value={props.setting().password}
             class="max-w-150px ml-1em px-1 text-slate-7 dark:text-slate rounded-sm bg-slate bg-op-15 focus:bg-op-20 focus:ring-0 focus:outline-none"
-            onInput={e => {
+            onInput={(e) => {
               props.setSetting({
                 ...props.setting(),
-                password: (e.target as HTMLInputElement).value
-              })
+                password: (e.target as HTMLInputElement).value,
+              });
             }}
           />
         </SettingItem> */}
@@ -34,11 +34,11 @@ export default function SettingAction(props: {
             type="password"
             value={props.setting().openaiAPIKey}
             class="max-w-150px ml-1em px-1 text-slate-7 dark:text-slate rounded-sm bg-slate bg-op-15 focus:bg-op-20 focus:ring-0 focus:outline-none"
-            onInput={e => {
+            onInput={(e) => {
               props.setSetting({
                 ...props.setting(),
-                openaiAPIKey: (e.target as HTMLInputElement).value
-              })
+                openaiAPIKey: (e.target as HTMLInputElement).value,
+              });
             }}
           />
         </SettingItem> */}
@@ -118,7 +118,7 @@ export default function SettingAction(props: {
             setShown(!shown());
           }}
           icon="i-carbon:settings"
-          label="设置"
+          label="自定义设置"
         />
         <div class="flex">
           <ActionItem
@@ -182,6 +182,7 @@ function ActionItem(props: { onClick: any; icon: string; label?: string }) {
   );
 }
 
+// 导出图片
 function exportJpg() {
   toJpeg(document.querySelector("#message-container") as HTMLElement, {}).then(
     (url) => {

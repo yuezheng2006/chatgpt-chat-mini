@@ -11,5 +11,4 @@ export const message = `- [[Shift]] + [[Enter]] 换行。开头输入 [[/]] 或�
 
 export type Setting = typeof setting;
 
-// 是否刷新页面时重置该选项（支持持续会话）
 export const resetContinuousDialogue = false;

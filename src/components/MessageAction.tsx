@@ -1,20 +1,20 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show } from "solid-js"
 export default function MessageAction(props: {
-  hidden: boolean;
-  edit: () => void;
-  del: () => void;
-  copy: () => void;
+  hidden: boolean
+  edit: () => void
+  del: () => void
+  copy: () => void
 }) {
-  const [copied, setCopied] = createSignal(false);
+  const [copied, setCopied] = createSignal(false)
   return (
     <Show when={!props.hidden}>
-      <div class="flex absolute items-center justify-between md:top-2 md:right-2 top--2 right--2 text-sm text-slate-7 dark:text-slate group-hover:opacity-100 group-focus:opacity-100 opacity-0 bg-slate bg-op-10 rounded">
+      <div class="flex absolute items-center justify-between md:top-2 md:right-2 top--2 right-0 text-sm text-slate-7 dark:text-slate group-hover:opacity-100 group-focus:opacity-100 opacity-0 bg-slate bg-op-10 rounded">
         <ActionItem
           label="复制"
           onClick={() => {
-            setCopied(true);
-            props.copy();
-            setTimeout(() => setCopied(false), 2000);
+            setCopied(true)
+            props.copy()
+            setTimeout(() => setCopied(false), 2000)
           }}
           icon={copied() ? "i-un:copied" : "i-un:copy"}
         />
@@ -26,7 +26,7 @@ export default function MessageAction(props: {
         />
       </div>
     </Show>
-  );
+  )
 }
 
 function ActionItem(props: { onClick: any; icon: string; label?: string }) {
@@ -37,5 +37,5 @@ function ActionItem(props: { onClick: any; icon: string; label?: string }) {
     >
       <button class={props.icon} title={props.label} />
     </div>
-  );
+  )
 }
