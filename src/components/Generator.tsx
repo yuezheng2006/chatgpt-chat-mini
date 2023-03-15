@@ -104,7 +104,7 @@ export default function (props: {
         setMessageList(JSON.parse(session));
       }
     } catch {
-      console.log("Setting parse error");
+      // console.log("Setting parse error");
     }
   });
 
