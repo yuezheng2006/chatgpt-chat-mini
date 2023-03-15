@@ -30,6 +30,7 @@ export default (props: Props) => {
 
   const md = MarkdownIt({
     linkify: true,
+    breaks: true,
   })
     .use(mdKatex)
     .use(mdHighlight, {

@@ -80,10 +80,8 @@ export default function (props: {
       },
       { passive: true }
     );
-    // 增加交互
     document.querySelector("main")?.classList.remove("before");
     document.querySelector("main")?.classList.add("after");
-
     createResizeObserver(containerRef, ({ width, height }, el) => {
       if (el === containerRef) setContainerWidth(`${width}px`);
     });
@@ -104,7 +102,7 @@ export default function (props: {
         setMessageList(JSON.parse(session));
       }
     } catch {
-      // console.log("Setting parse error");
+      console.log("Setting parse error");
     }
   });
 
@@ -218,7 +216,7 @@ export default function (props: {
       role: "user",
       content: systemRule ? systemRule + "\n" + inputValue : inputValue,
     };
-    const response = await fetch("/api/stream", {
+    const response = await fetch("/api", {
       method: "POST",
       body: JSON.stringify({
         messages: setting().continuousDialogue
@@ -226,6 +224,7 @@ export default function (props: {
           : [message],
         key: setting().openaiAPIKey,
         temperature: setting().openaiAPITemperature / 100,
+        password: setting().password,
       }),
       signal: controller.signal,
     });
@@ -355,7 +354,7 @@ export default function (props: {
           containerWidth() === "init"
             ? {}
             : {
-                transition: "opacity 0.3s ease-in-out",
+                transition: "opacity 1s ease-in-out",
                 width: containerWidth(),
                 opacity: 100,
                 "background-color": "var(--c-bg)",
@@ -412,6 +411,7 @@ export default function (props: {
                   }
                 } else if (e.key === "Enter") {
                   if (!e.shiftKey) {
+                    e.preventDefault();
                     handleButtonClick();
                   }
                 } else if (e.key === "ArrowUp") {

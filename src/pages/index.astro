@@ -20,8 +20,12 @@ try {
   defaultSetting = setting
 }
 
+const reset =
+  import.meta.env.RESET_CONTINUOUS_DIALOGUE_OPTION ===
+    String(resetContinuousDialogue) ||
+  process.env.RESET_CONTINUOUS_DIALOGUE_OPTION ===
+    String(resetContinuousDialogue)
 
-const reset = import.meta.env.RESET_CONTINUOUS_DIALOGUE_OPTION === String(resetContinuousDialogue ) || process.env.RESET_CONTINUOUS_DIALOGUE_OPTION === String(resetContinuousDialogue)
 ---
 
 <Layout title="ChatGPT MINI">

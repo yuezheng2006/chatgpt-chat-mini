@@ -3,6 +3,7 @@ export const setting = {
   archiveSession: false,
   openaiAPIKey: "",
   openaiAPITemperature: 60,
+  password: "",
   systemRule: "",
 };
 
