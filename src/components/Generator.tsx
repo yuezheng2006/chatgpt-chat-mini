@@ -9,6 +9,7 @@ import throttle from "just-throttle";
 import { isMobile } from "~/utils";
 import type { Setting } from "~/system";
 import { makeEventListener } from "@solid-primitives/event-listener";
+// import { mdMessage } from "~/temp"
 
 export interface PromptItem {
   desc: string;
@@ -26,7 +27,7 @@ export default function (props: {
   let inputRef: HTMLTextAreaElement;
   let containerRef: HTMLDivElement;
 
-  const { defaultMessage, defaultSetting } = props.env;
+  const { defaultMessage, defaultSetting, resetContinuousDialogue } = props.env;
   const [messageList, setMessageList] = createSignal<ChatMessage[]>([
     // {
     //   role: "assistant",
@@ -43,7 +44,6 @@ export default function (props: {
     []
   );
   const [containerWidth, setContainerWidth] = createSignal("init");
-  const [messageListLength, setMessageListLength] = createSignal(0);
   const fzf = new Fzf(props.prompts, {
     selector: (k) => `${k.desc} (${k.prompt})`,
   });
@@ -94,62 +94,80 @@ export default function (props: {
         setSetting({
           ...defaultSetting,
           ...parsed,
+          ...(resetContinuousDialogue ? { continuousDialogue: false } : {}),
         });
       }
       if (session && archiveSession) {
         setMessageList(JSON.parse(session));
-      }
+      } else
+        setMessageList([
+          {
+            role: "assistant",
+            content: defaultMessage,
+          },
+        ]);
     } catch {
       console.log("Setting parse error");
     }
   });
 
-  createEffect(() => {
-    if (messageList().length === 0) {
-      setMessageList([
-        {
-          role: "assistant",
-          content: defaultMessage,
-        },
-      ]);
-    } else if (
-      messageList().length > 1 &&
-      messageList()[0].content === defaultMessage
-    ) {
-      setMessageList(messageList().slice(1));
-    }
-    localStorage.setItem("setting", JSON.stringify(setting()));
-    if (setting().archiveSession)
-      localStorage.setItem("session", JSON.stringify(messageList()));
-  });
-
-  createEffect(() => {
-    if (messageList().length > messageListLength()) {
+  createEffect((prev: number | undefined) => {
+    if (prev !== undefined && messageList().length > prev) {
       scrollToBottom();
-      setMessageListLength(messageList().length);
     }
+    return messageList().length;
   });
 
   createEffect(() => {
-    currentAssistantMessage();
-    scrollToBottom();
+    if (currentAssistantMessage()) scrollToBottom();
+  });
+
+  createEffect((prev) => {
+    messageList();
+    if (prev) {
+      if (messageList().length === 0) {
+        setMessageList([
+          {
+            role: "assistant",
+            content: defaultMessage,
+          },
+        ]);
+      } else if (
+        messageList().length > 1 &&
+        messageList()[0].content === defaultMessage
+      ) {
+        setMessageList(messageList().slice(1));
+      }
+      if (setting().archiveSession) {
+        localStorage.setItem("session", JSON.stringify(messageList()));
+      }
+    }
+    return true;
   });
 
   createEffect(() => {
-    setHeight("48px");
-    if (inputContent() === "") {
-      setCompatiblePrompt([]);
-    } else {
-      const { scrollHeight } = inputRef;
-      setHeight(
-        `${
-          scrollHeight > window.innerHeight - 64
-            ? window.innerHeight - 64
-            : scrollHeight
-        }px`
-      );
+    localStorage.setItem("setting", JSON.stringify(setting()));
+  });
+
+  createEffect((prev) => {
+    inputContent();
+    if (prev) {
+      setHeight("48px");
+      if (inputContent() === "") {
+        setCompatiblePrompt([]);
+      } else {
+        const { scrollHeight } = inputRef;
+        setHeight(
+          `${
+            scrollHeight > window.innerHeight - 64
+              ? window.innerHeight - 64
+              : scrollHeight
+          }px`
+        );
+      }
+      inputRef.focus();
     }
-    inputRef.focus();
+    return true;
   });
 
   function archiveCurrentMessage() {
@@ -165,7 +183,6 @@ export default function (props: {
       setLoading(false);
       setController();
       !isMobile() && inputRef.focus();
-      scrollToBottom.flush();
     }
   }
 
@@ -254,7 +271,6 @@ export default function (props: {
   }
 
   function clearSession() {
-    // setInputContent("")
     setMessageList([]);
     setCurrentAssistantMessage("");
   }
@@ -378,7 +394,7 @@ export default function (props: {
                 class="ml-1em px-2 py-0.5 border border-slate text-slate rounded-md text-sm op-70 cursor-pointer hover:bg-slate/10"
                 onClick={stopStreamFetch}
               >
-                不需要了
+                停止
               </div>
             </div>
           )}
@@ -393,7 +409,7 @@ export default function (props: {
             <textarea
               ref={inputRef!}
               id="input"
-              placeholder="与 ChatGPT 对话吧"
+              placeholder="与 ta 对话吧"
               autocomplete="off"
               value={inputContent()}
               autofocus
